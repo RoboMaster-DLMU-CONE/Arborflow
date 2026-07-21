@@ -1,0 +1,65 @@
+{
+  "name": "arborflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A cross-platform behavior tree editor for BehaviorTree.CPP",
+  "main": "electron/main.cjs",
+  "author": "ArborFlow Contributors",
+  "license": "MIT",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "dist": "npm run build && electron-builder",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "mock:monitor": "node scripts/mock-monitor.cjs",
+    "icon:render": "electron scripts/render-icon.cjs"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.8.4",
+    "@dagrejs/dagre": "^1.1.5",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.5",
+    "wait-on": "^8.0.1",
+    "ws": "^8.18.0"
+  },
+  "build": {
+    "appId": "dev.arborflow.editor",
+    "productName": "ArborFlow",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "icon": "build/icon.png",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": ["dmg", "zip"]
+    },
+    "linux": {
+      "category": "Development",
+      "target": ["AppImage", "deb"]
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    }
+  }
+}
