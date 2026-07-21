@@ -29,6 +29,7 @@ export type BehaviorNodeData = {
   ports: Record<string, string>
   notes: string
   breakpoint: boolean
+  xmlTag?: string
   runtimeStatus?: RuntimeStatus
   [key: string]: unknown
 }
@@ -36,11 +37,35 @@ export type BehaviorNodeData = {
 export type BehaviorNode = Node<BehaviorNodeData, 'behavior'>
 export type BehaviorEdge = Edge
 
+export interface BehaviorTreeGraph {
+  id: string
+  nodes: BehaviorNode[]
+  edges: BehaviorEdge[]
+}
+
+export interface NodePortModel {
+  name: string
+  direction: 'input_port' | 'output_port' | 'inout_port'
+  type: string
+  defaultValue?: string
+  description: string
+}
+
+export interface CustomNodeModel {
+  id: string
+  nodeType: NodeType
+  category: NodeCategory
+  ports: NodePortModel[]
+}
+
 export interface BehaviorTreeDocument {
   format: 'arborflow/project'
   version: 1
   title: string
   mainTreeId: string
+  activeTreeId?: string
+  trees?: BehaviorTreeGraph[]
+  nodeModels?: CustomNodeModel[]
   nodes: BehaviorNode[]
   edges: BehaviorEdge[]
 }

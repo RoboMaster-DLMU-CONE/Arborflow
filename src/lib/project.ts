@@ -1,7 +1,8 @@
+import { syncActiveTree, switchDocumentTree } from './trees'
 import type { BehaviorTreeDocument } from '../types'
 
 export function serializeProject(document: BehaviorTreeDocument) {
-  return JSON.stringify(document, null, 2) + '\n'
+  return JSON.stringify(syncActiveTree(document), null, 2) + '\n'
 }
 
 export function parseProject(content: string): BehaviorTreeDocument {
@@ -14,7 +15,9 @@ export function parseProject(content: string): BehaviorTreeDocument {
   if (!Array.isArray(candidate.nodes) || !Array.isArray(candidate.edges)) {
     throw new Error('工程文件缺少节点或连接数据')
   }
-  return candidate as BehaviorTreeDocument
+  const document = candidate as BehaviorTreeDocument
+  const requestedTree = document.activeTreeId || document.mainTreeId
+  return document.trees?.length ? switchDocumentTree(document, requestedTree) : document
 }
 
 export function downloadText(filename: string, content: string, type = 'text/plain') {

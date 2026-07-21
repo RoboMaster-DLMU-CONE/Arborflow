@@ -11,7 +11,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
-import type { BehaviorNode, NodeCategory, NodeType } from '../types'
+import type { BehaviorNode, CustomNodeModel, NodeCategory, NodeType } from '../types'
 
 export interface NodeDefinition {
   type: NodeType
@@ -68,6 +68,19 @@ export function createNode(type: NodeType, position = { x: 80, y: 80 }): Behavio
       breakpoint: false,
     },
   }
+}
+
+export function createNodeFromModel(model: CustomNodeModel, position = { x: 80, y: 80 }): BehaviorNode {
+  const node = createNode(model.nodeType, position)
+  node.data = {
+    ...node.data,
+    label: model.id,
+    category: model.category,
+    registrationName: model.id,
+    xmlTag: model.id,
+    ports: Object.fromEntries(model.ports.map((port) => [port.name, port.defaultValue || ''])),
+  }
+  return node
 }
 
 export function canHaveChildren(type: NodeType) {

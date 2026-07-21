@@ -2,7 +2,7 @@
 
 ArborFlow 是一个面向 [BehaviorTree.CPP](https://github.com/BehaviorTree/BehaviorTree.CPP) 的跨平台行为树生成、编辑与运行状态可视化工具。
 
-项目使用 Electron、React、TypeScript 和 React Flow 构建，可在 Windows、Linux 与 macOS 上运行。当前版本以单个主行为树为编辑单位，可通过 `SubTree` 节点引用其他行为树。
+项目使用 Electron、React、TypeScript 和 React Flow 构建，可在 Windows、Linux 与 macOS 上运行。一个工程可以包含多棵行为树，并通过 `SubTree` 节点相互引用。
 
 ## 主要功能
 
@@ -13,6 +13,8 @@ ArborFlow 是一个面向 [BehaviorTree.CPP](https://github.com/BehaviorTree/Beh
 - 自动布局、画布缩放、小地图、撤销与重做
 - 保存和打开 `.arborflow` 工程文件
 - 导入、导出和预览 BehaviorTree.CPP v4 XML
+- 导入多棵 `BehaviorTree` 并在顶部树选择器中切换
+- 解析 `TreeNodesModel`，加载自定义节点及其端口默认值
 - 通过 WebSocket 或 `rosbridge_server` 实时显示节点状态
 - 实时事件流、消息计数、节点匹配统计、延迟检测和自动重连
 
@@ -65,10 +67,11 @@ npm run preview
 2. 从父节点底部连接点拖到子节点顶部连接点。
 3. 选中节点后，在右侧检查器修改名称、端口、黑板参数或断点。
 4. 使用工具栏的自动布局按钮整理整棵树。
-5. 将工程保存为 `.arborflow`，或导出为 BehaviorTree.CPP XML。
-6. 打开 Monitor，填写机器人地址后连接实时状态流。
+5. 多树工程可通过画布左上方的树选择器切换当前行为树。
+6. 将工程保存为 `.arborflow`，或导出为 BehaviorTree.CPP XML。
+7. 打开 Monitor，填写机器人地址后连接实时状态流。
 
-工程文件保存编辑器坐标、节点 ID、端口、备注等完整信息。XML 只保存 BehaviorTree.CPP 可执行数据，不包含编辑器坐标或实时运行状态。
+工程文件保存全部行为树、编辑器坐标、节点 ID、节点模型、端口和备注等完整信息。XML 不包含编辑器坐标或实时运行状态。
 
 ## BehaviorTree.CPP XML
 
@@ -87,6 +90,10 @@ ArborFlow 导出 BehaviorTree.CPP v4 格式：
 ```
 
 同一父节点下的执行顺序按照子节点在画布上的横向位置从左到右确定。导出前必须保证画布中只有一个根节点，并且所有节点组成一棵无环树。
+
+XML 没有声明 `main_tree_to_execute` 时，ArborFlow 会分析所有 `SubTree` 引用，将没有被其他树引用的行为树推断为主树。存在多个候选时，优先使用 `MainTree`，否则使用 XML 中最后一棵树。
+
+`TreeNodesModel` 中的自定义 Action、Condition、Decorator 和 Control 会进入左侧的“XML 自定义节点”分组。端口名称、方向、类型、默认值和描述会在工程及再次导出的 XML 中保留。
 
 ## Real-time Monitor
 

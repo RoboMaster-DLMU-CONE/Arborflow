@@ -37,10 +37,11 @@ import { BehaviorNodeCard } from './components/BehaviorNodeCard'
 import { Inspector } from './components/Inspector'
 import { MonitorPanel } from './components/MonitorPanel'
 import { NodePalette } from './components/NodePalette'
-import { createNode, maxChildren } from './lib/catalog'
+import { createNode, createNodeFromModel, maxChildren } from './lib/catalog'
 import { createDemoDocument, createEmptyDocument } from './lib/demo'
 import { layoutDocument } from './lib/layout'
 import { downloadText, parseProject, pickBrowserFile, serializeProject } from './lib/project'
+import { activeTreeId, switchDocumentTree, syncedTreeGraphs } from './lib/trees'
 import { validateDocument, wouldCreateCycle } from './lib/validation'
 import { documentToXml, xmlToDocument } from './lib/xml'
 import type { BehaviorNode, BehaviorTreeDocument, NodeType, RuntimeStatus } from './types'
@@ -57,6 +58,7 @@ function Editor() {
   const [projectPath, setProjectPath] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('canvas')
+  const [treeMenuOpen, setTreeMenuOpen] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [monitorOpen, setMonitorOpen] = useState(false)
@@ -74,6 +76,8 @@ function Editor() {
     () => treeDocument.nodes.find((node) => node.id === selectedNodeId) || null,
     [treeDocument.nodes, selectedNodeId],
   )
+  const treeGraphs = useMemo(() => syncedTreeGraphs(treeDocument), [treeDocument])
+  const currentTreeId = activeTreeId(treeDocument)
   const issues = useMemo(() => validateDocument(treeDocument), [treeDocument])
 
   const xmlPreview = useMemo(() => {
@@ -148,6 +152,32 @@ function Editor() {
     setSelectedNodeId(node.id)
     setViewMode('canvas')
   }, [commit, screenToFlowPosition])
+
+  const addCustomNodeAt = useCallback((modelId: string, position?: { x: number; y: number }) => {
+    const model = treeDocument.nodeModels?.find((item) => item.id === modelId)
+    if (!model) return
+    const point = position || screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
+    const node = createNodeFromModel(model, point)
+    commit((current) => ({ ...current, nodes: [...current.nodes, node] }))
+    setSelectedNodeId(node.id)
+    setViewMode('canvas')
+  }, [commit, screenToFlowPosition, treeDocument.nodeModels])
+
+  const switchTree = useCallback((treeId: string) => {
+    if (treeId === currentTreeId) {
+      setTreeMenuOpen(false)
+      return
+    }
+    setTreeDocument((current) => switchDocumentTree(current, treeId))
+    setSelectedNodeId(null)
+    setSelectedEdgeId(null)
+    setRuntimeStatuses({})
+    setTreeMenuOpen(false)
+    pastRef.current = []
+    futureRef.current = []
+    setHistoryRevision((value) => value + 1)
+    window.setTimeout(() => fitView({ padding: 0.2, duration: 320 }), 60)
+  }, [currentTreeId, fitView])
 
   const deleteNode = useCallback((nodeId: string) => {
     commit((current) => ({
@@ -292,10 +322,15 @@ function Editor() {
 
   const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault()
+    const modelId = event.dataTransfer.getData('application/arborflow-model')
+    if (modelId) {
+      addCustomNodeAt(modelId, screenToFlowPosition({ x: event.clientX, y: event.clientY }))
+      return
+    }
     const type = event.dataTransfer.getData('application/arborflow-node') as NodeType
     if (!type) return
     addNodeAt(type, screenToFlowPosition({ x: event.clientX, y: event.clientY }))
-  }, [addNodeAt, screenToFlowPosition])
+  }, [addCustomNodeAt, addNodeAt, screenToFlowPosition])
 
   const copyXml = useCallback(async () => {
     if (!xmlPreview.value) return
@@ -415,7 +450,22 @@ function Editor() {
       </header>
 
       <div className="workspace-toolbar">
-        <div className="tree-tab"><GitBranch size={15} /><span>{treeDocument.mainTreeId}</span><ChevronDown size={13} /></div>
+        <div className="tree-selector">
+          <button className={`tree-tab ${treeMenuOpen ? 'active' : ''}`} onClick={() => setTreeMenuOpen((value) => !value)}>
+            <GitBranch size={15} /><span>{currentTreeId}</span><ChevronDown size={13} />
+          </button>
+          {treeMenuOpen && (
+            <div className="tree-menu">
+              <div className="tree-menu-heading">行为树 · {treeGraphs.length}</div>
+              {treeGraphs.map((tree) => (
+                <button className={tree.id === currentTreeId ? 'active' : ''} key={tree.id} onClick={() => switchTree(tree.id)}>
+                  <span>{tree.id}</span>
+                  <small>{tree.nodes.length} 节点{tree.id === treeDocument.mainTreeId ? ' · MAIN' : ''}</small>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="view-switch" aria-label="视图切换">
           <button className={viewMode === 'canvas' ? 'active' : ''} onClick={() => setViewMode('canvas')}><TreePine size={14} />画布</button>
           <button className={viewMode === 'xml' ? 'active' : ''} onClick={() => setViewMode('xml')}><Code2 size={14} />XML</button>
@@ -426,7 +476,7 @@ function Editor() {
       </div>
 
       <main className="workspace-grid">
-        <NodePalette onAddNode={addNodeAt} />
+        <NodePalette customModels={treeDocument.nodeModels || []} onAddNode={addNodeAt} onAddCustomNode={addCustomNodeAt} />
         <section className="center-stage">
           <div className="canvas-region" onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' }} onDrop={handleDrop}>
             {viewMode === 'canvas' ? (
@@ -438,7 +488,7 @@ function Editor() {
                 onConnect={connectNodes}
                 onNodeClick={(_event, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(null) }}
                 onEdgeClick={(_event, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(null) }}
-                onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null) }}
+                onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); setTreeMenuOpen(false) }}
                 onNodeDragStart={() => { dragStartRef.current = treeDocument }}
                 onNodeDragStop={() => {
                   if (dragStartRef.current) {
@@ -508,7 +558,7 @@ function Editor() {
 
       <footer className="status-bar">
         <div><span className={errors ? 'status-error' : 'status-valid'}>{errors ? `${errors} 个结构错误` : <><Check size={12} />结构有效</>}</span></div>
-        <div><span>{treeDocument.nodes.length} 节点</span><span>{treeDocument.edges.length} 连接</span><span>{zoom}%</span><span>{window.arborflow ? `Desktop · ${window.arborflow.platform}` : 'Web Preview'}</span></div>
+        <div><span>{treeGraphs.length} 棵树</span><span>{treeDocument.nodes.length} 节点</span><span>{treeDocument.edges.length} 连接</span><span>{zoom}%</span><span>{window.arborflow ? `Desktop · ${window.arborflow.platform}` : 'Web Preview'}</span></div>
       </footer>
       {toast && <div className={`toast ${toast.kind}`}>{toast.message}</div>}
     </div>
