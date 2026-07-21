@@ -218,7 +218,9 @@ npm run dist:linux
 npm run dist:mac
 ```
 
-输出目录为 `release/`。建议在目标操作系统上执行对应打包命令，特别是 macOS 签名、公证以及不同 CPU 架构的构建。
+输出按平台分别保存到 `release/windows/`、`release/linux/` 和 `release/macos/`。建议在目标操作系统上执行对应打包命令，特别是 macOS 签名、公证以及不同 CPU 架构的构建。
+
+仓库内的 `.github/workflows/build-release.yml` 会在 Windows、Ubuntu 和 macOS 原生运行器上并行打包。可在 GitHub Actions 中手动运行，也会在推送 `v*` 标签时自动执行并上传三个独立平台产物。
 
 可用的默认目标：
 
@@ -247,6 +249,9 @@ npm run icon:render
 | `npm run dist:win` | 构建 Windows 包 |
 | `npm run dist:linux` | 构建 Linux 包 |
 | `npm run dist:mac` | 构建 macOS 包 |
+| `npm run pack:win` | 不重复构建前端，直接生成 Windows 包 |
+| `npm run pack:linux` | 不重复构建前端，直接生成 Linux 包 |
+| `npm run pack:mac` | 不重复构建前端，直接生成 macOS 包 |
 
 ## 项目结构
 
