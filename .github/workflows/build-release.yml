@@ -7,7 +7,7 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   package:
@@ -17,15 +17,26 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: windows
+          - artifact: windows-x64
+            platform: windows
             os: windows-latest
-            command: dist:win
-          - platform: linux
+            target: win
+            arch: x64
+          - artifact: linux-x64
+            platform: linux
             os: ubuntu-22.04
-            command: dist:linux
-          - platform: macos
+            target: linux
+            arch: x64
+          - artifact: macos-x64
+            platform: macos
             os: macos-14
-            command: dist:mac
+            target: mac
+            arch: x64
+          - artifact: macos-arm64
+            platform: macos
+            os: macos-14
+            target: mac
+            arch: arm64
 
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -44,12 +55,47 @@ jobs:
         run: npm ci
 
       - name: Build packages
-        run: npm run ${{ matrix.command }}
+        run: |
+          npm run build
+          npm run pack:${{ matrix.target }} -- --${{ matrix.arch }}
+
+      - name: Write checksums
+        run: node scripts/write-checksums.cjs release/${{ matrix.platform }} ${{ matrix.artifact }}
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
-          name: ArborFlow-${{ matrix.platform }}
-          path: release/${{ matrix.platform }}/
+          name: ArborFlow-${{ matrix.artifact }}
+          path: |
+            release/${{ matrix.platform }}/*.exe
+            release/${{ matrix.platform }}/*.blockmap
+            release/${{ matrix.platform }}/*.AppImage
+            release/${{ matrix.platform }}/*.deb
+            release/${{ matrix.platform }}/*.dmg
+            release/${{ matrix.platform }}/*.zip
+            release/${{ matrix.platform }}/SHA256SUMS-${{ matrix.artifact }}.txt
           if-no-files-found: error
           compression-level: 0
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ArborFlow-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release-assets/* \
+            --verify-tag \
+            --generate-notes \
+            --title "ArborFlow $GITHUB_REF_NAME"

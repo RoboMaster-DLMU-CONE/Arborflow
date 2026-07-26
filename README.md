@@ -1,8 +1,37 @@
 # ArborFlow
 
+[![Build release packages](https://github.com/RoboMaster-DLMU-CONE/Arborflow/actions/workflows/build-release.yml/badge.svg)](https://github.com/RoboMaster-DLMU-CONE/Arborflow/actions/workflows/build-release.yml)
+[![GitHub release](https://img.shields.io/github/v/release/RoboMaster-DLMU-CONE/Arborflow)](https://github.com/RoboMaster-DLMU-CONE/Arborflow/releases/latest)
+[![License](https://img.shields.io/github/license/RoboMaster-DLMU-CONE/Arborflow)](LICENSE)
+
 ArborFlow 是一个面向 [BehaviorTree.CPP](https://github.com/BehaviorTree/BehaviorTree.CPP) 的跨平台行为树生成、编辑与运行状态可视化工具。
 
 项目使用 Electron、React、TypeScript 和 React Flow 构建，可在 Windows、Linux 与 macOS 上运行。一个工程可以包含多棵行为树，并通过 `SubTree` 节点相互引用。
+
+## 下载与安装
+
+安装包统一发布在 [GitHub Releases](https://github.com/RoboMaster-DLMU-CONE/Arborflow/releases/latest)。自动构建提供以下版本：
+
+| 平台 | 架构 | 发行格式 |
+| --- | --- | --- |
+| Windows | x64 | NSIS 安装包、Portable 便携版 |
+| Linux | x64 | AppImage、deb |
+| macOS | Intel x64、Apple Silicon arm64 | dmg、zip |
+
+Linux AppImage 首次运行前需要增加执行权限：
+
+```bash
+chmod +x ArborFlow-*.AppImage
+./ArborFlow-*.AppImage
+```
+
+deb 包可使用系统包管理器安装：
+
+```bash
+sudo apt install ./arborflow_*.deb
+```
+
+当前自动构建未配置商业代码签名证书。Windows 可能显示 SmartScreen 提示；macOS 首次运行时可在 Finder 中右键应用并选择“打开”。每个 Release 都附带分平台的 `SHA256SUMS-*.txt` 校验文件。
 
 ## 主要功能
 
@@ -220,7 +249,7 @@ npm run dist:mac
 
 输出按平台分别保存到 `release/windows/`、`release/linux/` 和 `release/macos/`。建议在目标操作系统上执行对应打包命令，特别是 macOS 签名、公证以及不同 CPU 架构的构建。
 
-仓库内的 `.github/workflows/build-release.yml` 会在 Windows、Ubuntu 和 macOS 原生运行器上并行打包。可在 GitHub Actions 中手动运行，也会在推送 `v*` 标签时自动执行并上传三个独立平台产物。
+仓库内的 `.github/workflows/build-release.yml` 会在 Windows、Ubuntu 和 macOS 原生运行器上并行打包。可在 GitHub Actions 中手动运行；推送 `v*` 标签时会自动创建 GitHub Release，并上传安装包及 SHA-256 校验文件。
 
 可用的默认目标：
 
