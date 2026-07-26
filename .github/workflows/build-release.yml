@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   package:
-    name: Package ${{ matrix.platform }}
+    name: Package ${{ matrix.artifact }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -57,7 +57,7 @@ jobs:
       - name: Build packages
         run: |
           npm run build
-          npm run pack:${{ matrix.target }} -- --${{ matrix.arch }}
+          npm run pack:${{ matrix.target }} -- --${{ matrix.arch }} --publish never
 
       - name: Write checksums
         run: node scripts/write-checksums.cjs release/${{ matrix.platform }} ${{ matrix.artifact }}

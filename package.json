@@ -67,6 +67,7 @@
     },
     "linux": {
       "category": "Development",
+      "maintainer": "RoboMaster-DLMU-CONE <RoboMaster-DLMU-CONE@users.noreply.github.com>",
       "target": ["AppImage", "deb"]
     },
     "win": {
