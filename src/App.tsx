@@ -26,8 +26,11 @@ import {
   FolderOpen,
   GitBranch,
   MonitorDot,
+  Moon,
   Redo2,
   Save,
+  Settings,
+  Sun,
   TreePine,
   Undo2,
   Upload,
@@ -36,6 +39,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BehaviorNodeCard } from './components/BehaviorNodeCard'
 import { Inspector } from './components/Inspector'
 import { MonitorPanel } from './components/MonitorPanel'
+import { NodeDetailModal } from './components/NodeDetailModal'
 import { NodePalette } from './components/NodePalette'
 import { createNode, createNodeFromModel, maxChildren } from './lib/catalog'
 import { createDemoDocument, createEmptyDocument } from './lib/demo'
@@ -44,7 +48,9 @@ import { downloadText, parseProject, pickBrowserFile, serializeProject } from '.
 import { activeTreeId, switchDocumentTree, syncedTreeGraphs } from './lib/trees'
 import { validateDocument, wouldCreateCycle } from './lib/validation'
 import { documentToXml, xmlToDocument } from './lib/xml'
-import type { BehaviorNode, BehaviorTreeDocument, NodeType, RuntimeStatus } from './types'
+import { useTheme } from './context/ThemeContext'
+import { useI18n } from './context/I18nContext'
+import type { BehaviorNode, BehaviorTreeDocument, CustomNodeModel, NodeType, RuntimeStatus } from './types'
 
 const nodeTypes = { behavior: BehaviorNodeCard }
 const PROJECT_FILTERS = [{ name: 'ArborFlow Project', extensions: ['arborflow', 'json'] }]
@@ -54,14 +60,18 @@ type ViewMode = 'canvas' | 'xml'
 type DocumentUpdater = BehaviorTreeDocument | ((current: BehaviorTreeDocument) => BehaviorTreeDocument)
 
 function Editor() {
+  const { theme, toggleTheme } = useTheme()
+  const { t, lang, setLang } = useI18n()
   const [treeDocument, setTreeDocument] = useState<BehaviorTreeDocument>(() => createDemoDocument())
   const [projectPath, setProjectPath] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('canvas')
   const [treeMenuOpen, setTreeMenuOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [monitorOpen, setMonitorOpen] = useState(false)
+  const [modalNodeId, setModalNodeId] = useState<string | null>(null)
   const [runtimeStatuses, setRuntimeStatuses] = useState<Record<string, RuntimeStatus>>({})
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
   const [historyRevision, setHistoryRevision] = useState(0)
@@ -163,6 +173,13 @@ function Editor() {
     setViewMode('canvas')
   }, [commit, screenToFlowPosition, treeDocument.nodeModels])
 
+  const addCustomModel = useCallback((model: CustomNodeModel) => {
+    commit((current) => ({
+      ...current,
+      nodeModels: [...(current.nodeModels || []), model],
+    }))
+  }, [commit])
+
   const switchTree = useCallback((treeId: string) => {
     if (treeId === currentTreeId) {
       setTreeMenuOpen(false)
@@ -201,9 +218,7 @@ function Editor() {
   }, [commit])
 
   const onNodesChange = useCallback((changes: NodeChange<BehaviorNode>[]) => {
-    const positionChanges = changes.filter((change) => change.type === 'position')
-    if (!positionChanges.length) return
-    setTreeDocument((current) => ({ ...current, nodes: applyNodeChanges(positionChanges, current.nodes) }))
+    setTreeDocument((current) => ({ ...current, nodes: applyNodeChanges(changes, current.nodes) }))
   }, [])
 
   const connectNodes: OnConnect = useCallback((connection: Connection) => {
@@ -445,9 +460,31 @@ function Editor() {
           <span className="toolbar-separator" />
           <button className="icon-button" onClick={importXml} title="导入 XML"><Upload size={17} /></button>
           <button className="icon-button" onClick={exportXml} title="导出 XML"><FileDown size={17} /></button>
+          <span className="toolbar-separator" />
+          <button className={`icon-button ${settingsOpen ? 'active' : ''}`} onClick={() => setSettingsOpen((v) => !v)} title="设置"><Settings size={17} /></button>
           <button className={`monitor-button ${monitorOpen ? 'active' : ''}`} onClick={() => setMonitorOpen((value) => !value)}><MonitorDot size={16} />Monitor</button>
         </div>
       </header>
+
+      {settingsOpen && (
+        <div className="settings-dropdown">
+          <div className="settings-heading">{t('settings.title')}</div>
+          <div className="settings-heading" style={{ marginTop: 4 }}>{t('settings.theme')}</div>
+          <button className="settings-row" onClick={toggleTheme}>
+            <span>{theme === 'dark' ? <><Moon size={14} /> {t('settings.dark')}</> : <><Sun size={14} /> {t('settings.light')}</>}</span>
+            <small>{theme === 'dark' ? 'Dark' : 'Light'}</small>
+          </button>
+          <div className="settings-heading" style={{ marginTop: 4 }}>{t('settings.language')}</div>
+          <button className={`settings-row ${lang === 'zh' ? 'active' : ''}`} onClick={() => setLang('zh')}>
+            <span>{t('settings.langZh')}</span>
+            {lang === 'zh' && <small>✓</small>}
+          </button>
+          <button className={`settings-row ${lang === 'en' ? 'active' : ''}`} onClick={() => setLang('en')}>
+            <span>{t('settings.langEn')}</span>
+            {lang === 'en' && <small>✓</small>}
+          </button>
+        </div>
+      )}
 
       <div className="workspace-toolbar">
         <div className="tree-selector">
@@ -476,7 +513,7 @@ function Editor() {
       </div>
 
       <main className="workspace-grid">
-        <NodePalette customModels={treeDocument.nodeModels || []} onAddNode={addNodeAt} onAddCustomNode={addCustomNodeAt} />
+        <NodePalette customModels={treeDocument.nodeModels || []} onAddNode={addNodeAt} onAddCustomNode={addCustomNodeAt} onAddCustomModel={addCustomModel} />
         <section className="center-stage">
           <div className="canvas-region" onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' }} onDrop={handleDrop}>
             {viewMode === 'canvas' ? (
@@ -487,8 +524,9 @@ function Editor() {
                 onNodesChange={onNodesChange}
                 onConnect={connectNodes}
                 onNodeClick={(_event, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(null) }}
+                onNodeDoubleClick={(_event, node) => { setModalNodeId(node.id); setSelectedNodeId(node.id) }}
                 onEdgeClick={(_event, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(null) }}
-                onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); setTreeMenuOpen(false) }}
+                onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); setTreeMenuOpen(false); setSettingsOpen(false) }}
                 onNodeDragStart={() => { dragStartRef.current = treeDocument }}
                 onNodeDragStop={() => {
                   if (dragStartRef.current) {
@@ -510,7 +548,7 @@ function Editor() {
                 defaultEdgeOptions={{ type: 'smoothstep' }}
                 proOptions={{ hideAttribution: true }}
               >
-                <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="#343a40" />
+                <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color={theme === 'dark' ? '#343a40' : '#c4c8ce'} />
                 <Controls showInteractive={false} position="bottom-left" />
                 <MiniMap
                   position="bottom-right"
@@ -518,9 +556,12 @@ function Editor() {
                   zoomable
                   nodeColor={(node) => {
                     const category = (node.data as BehaviorNode['data']).category
-                    return { control: '#4f8cff', decorator: '#c084fc', action: '#22c98b', condition: '#f2b84b', subtree: '#ec6f66' }[category]
+                    const colors = theme === 'dark'
+                      ? { control: '#4f8cff', decorator: '#c084fc', action: '#22c98b', condition: '#f2b84b', subtree: '#ec6f66', root: '#eeb84a' }
+                      : { control: '#3a72e0', decorator: '#8b5fd4', action: '#1aad6f', condition: '#d99a20', subtree: '#d9605a', root: '#d99a20' }
+                    return colors[category] || (theme === 'dark' ? '#68717b' : '#929aa3')
                   }}
-                  maskColor="rgba(10, 12, 15, 0.72)"
+                  maskColor={theme === 'dark' ? 'rgba(10, 12, 15, 0.72)' : 'rgba(200, 205, 212, 0.45)'}
                 />
               </ReactFlow>
             ) : (
@@ -561,6 +602,19 @@ function Editor() {
         <div><span>{treeGraphs.length} 棵树</span><span>{treeDocument.nodes.length} 节点</span><span>{treeDocument.edges.length} 连接</span><span>{zoom}%</span><span>{window.arborflow ? `Desktop · ${window.arborflow.platform}` : 'Web Preview'}</span></div>
       </footer>
       {toast && <div className={`toast ${toast.kind}`}>{toast.message}</div>}
+
+      {modalNodeId && (() => {
+        const modalNode = treeDocument.nodes.find((n) => n.id === modalNodeId)
+        if (!modalNode) return null
+        return (
+          <NodeDetailModal
+            node={modalNode}
+            onSave={updateNode}
+            onDelete={(nodeId) => { deleteNode(nodeId); setModalNodeId(null) }}
+            onClose={() => setModalNodeId(null)}
+          />
+        )
+      })()}
     </div>
   )
 }

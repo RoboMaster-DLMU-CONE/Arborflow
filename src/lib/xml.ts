@@ -51,10 +51,23 @@ function renderTree(graph: BehaviorTreeGraph) {
   })
   children.forEach((items) => items.sort((a, b) => a.position.x - b.position.x))
 
+  // Skip Root nodes — their children become the XML root(s)
+  let entryRoot = roots[0]
+  if (entryRoot.data.nodeType === 'Root') {
+    const rootChildren = children.get(entryRoot.id) || []
+    if (rootChildren.length === 0) throw new Error(`${graph.id} 的根节点没有子节点`)
+    if (rootChildren.length > 1) throw new Error(`${graph.id} 的 Root 节点下有多个子节点，只能有一个`)
+    entryRoot = rootChildren[0]
+  }
+
   const visited = new Set<string>()
   const renderNode = (node: BehaviorNode, depth: number): string => {
     if (visited.has(node.id)) throw new Error(`${graph.id} 中存在重复引用或环路`)
     visited.add(node.id)
+    if (node.data.nodeType === 'Root') {
+      const rootChildren = children.get(node.id) || []
+      return rootChildren.map((child) => renderNode(child, depth)).join('\n')
+    }
     const indent = '    '.repeat(depth)
     const tag = nodeTag(node)
     const attributes: Array<[string, string]> = []
@@ -64,13 +77,13 @@ function renderTree(graph: BehaviorTreeGraph) {
       if (key.trim()) attributes.push([key.trim(), value])
     })
     const attrs = attributes.map(([key, value]) => ` ${key}="${escapeXml(value)}"`).join('')
-    const childNodes = children.get(node.id) || []
+    const childNodes = (children.get(node.id) || []).filter((c) => c.data.nodeType !== 'Root')
     if (childNodes.length === 0) return `${indent}<${tag}${attrs}/>`
     const content = childNodes.map((child) => renderNode(child, depth + 1)).join('\n')
     return `${indent}<${tag}${attrs}>\n${content}\n${indent}</${tag}>`
   }
 
-  return `  <BehaviorTree ID="${escapeXml(graph.id)}">\n${renderNode(roots[0], 2)}\n  </BehaviorTree>`
+  return `  <BehaviorTree ID="${escapeXml(graph.id)}">\n${renderNode(entryRoot, 2)}\n  </BehaviorTree>`
 }
 
 function renderNodeModels(models: CustomNodeModel[]) {

@@ -1,6 +1,8 @@
 import type { Edge, Node } from '@xyflow/react'
 
-export type NodeCategory = 'control' | 'decorator' | 'action' | 'condition' | 'subtree'
+export type NodeCategory = 'control' | 'decorator' | 'action' | 'condition' | 'subtree' | 'root'
+
+export type PortDirection = 'input' | 'output' | 'inout'
 
 export type NodeType =
   | 'Sequence'
@@ -18,6 +20,7 @@ export type NodeType =
   | 'SubTree'
   | 'AlwaysSuccess'
   | 'AlwaysFailure'
+  | 'Root'
 
 export type RuntimeStatus = 'IDLE' | 'RUNNING' | 'SUCCESS' | 'FAILURE' | 'SKIPPED'
 
@@ -27,6 +30,7 @@ export type BehaviorNodeData = {
   category: NodeCategory
   registrationName: string
   ports: Record<string, string>
+  portDirections?: Record<string, PortDirection>
   notes: string
   breakpoint: boolean
   xmlTag?: string

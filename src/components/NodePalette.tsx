@@ -1,24 +1,41 @@
-import { Search, SquareFunction, X, Zap } from 'lucide-react'
+import { Plus, Search, SquareFunction, TreePine, X, Zap } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { CATEGORY_LABELS, NODE_DEFINITIONS } from '../lib/catalog'
-import type { CustomNodeModel, NodeCategory, NodeType } from '../types'
+import { NODE_DEFINITIONS, NODE_DEFINITION_MAP } from '../lib/catalog'
+import { useI18n } from '../context/I18nContext'
+import type { CustomNodeModel, NodeType } from '../types'
 
 interface NodePaletteProps {
   customModels: CustomNodeModel[]
   onAddNode: (type: NodeType) => void
   onAddCustomNode: (modelId: string) => void
+  onAddCustomModel: (model: CustomNodeModel) => void
 }
 
-const CATEGORY_ORDER: NodeCategory[] = ['control', 'decorator', 'action', 'condition', 'subtree']
+const CATEGORY_ORDER = ['root', 'control', 'decorator', 'action', 'condition', 'subtree'] as const
 
-export function NodePalette({ customModels, onAddNode, onAddCustomNode }: NodePaletteProps) {
+export function NodePalette({ customModels, onAddNode, onAddCustomNode, onAddCustomModel }: NodePaletteProps) {
+  const { t, lang } = useI18n()
+  const isZh = lang === 'zh'
   const [query, setQuery] = useState('')
   const normalizedQuery = query.trim().toLowerCase()
-  const groups = useMemo(() => CATEGORY_ORDER.map((category) => ({
-    category,
-    items: NODE_DEFINITIONS.filter((item) => item.category === category)
-      .filter((item) => !normalizedQuery || `${item.label} ${item.description} ${item.type}`.toLowerCase().includes(normalizedQuery)),
-  })).filter((group) => group.items.length), [normalizedQuery])
+  const [creatingModel, setCreatingModel] = useState(false)
+  const [newModelName, setNewModelName] = useState('')
+  const [newModelType, setNewModelType] = useState<NodeType>('Action')
+
+  const groupedDefinitions = useMemo(() => {
+    const defs = NODE_DEFINITIONS.filter((d) => {
+      if (!normalizedQuery) return true
+      const label = isZh ? d.labelZh : d.label
+      const desc = isZh ? d.descriptionZh : d.description
+      return `${label} ${desc} ${d.type}`.toLowerCase().includes(normalizedQuery)
+    })
+    const groups = new Map<string, typeof defs>()
+    CATEGORY_ORDER.forEach((cat) => {
+      const items = defs.filter((d) => d.category === cat)
+      if (items.length) groups.set(cat, items)
+    })
+    return groups
+  }, [normalizedQuery, isZh])
 
   const visibleModels = useMemo(() => customModels.filter((model) => {
     if (!normalizedQuery) return true
@@ -35,24 +52,61 @@ export function NodePalette({ customModels, onAddNode, onAddCustomNode }: NodePa
     event.dataTransfer.effectAllowed = 'copy'
   }
 
+  const submitNewModel = () => {
+    const trimmed = newModelName.trim()
+    if (!trimmed) return
+    const def = NODE_DEFINITION_MAP.get(newModelType)!
+    const model: CustomNodeModel = {
+      id: trimmed,
+      nodeType: newModelType,
+      category: def.category,
+      ports: [],
+    }
+    if (def.defaultPorts) {
+      model.ports = Object.entries(def.defaultPorts).map(([name, defaultValue]) => ({
+        name,
+        direction: 'input_port' as const,
+        type: '',
+        defaultValue,
+        description: '',
+      }))
+    }
+    onAddCustomModel(model)
+    setNewModelName('')
+    setNewModelType('Action')
+    setCreatingModel(false)
+  }
+
+  const catLabel = (cat: string) => {
+    return t(`cat.${cat}`)
+  }
+
+  const nodeLabel = (d: typeof NODE_DEFINITIONS[number]) => {
+    return isZh ? d.labelZh : d.label
+  }
+
+  const nodeDesc = (d: typeof NODE_DEFINITIONS[number]) => {
+    return isZh ? d.descriptionZh : d.description
+  }
+
   return (
     <aside className="left-panel">
       <div className="panel-heading">
         <div>
           <span className="eyebrow">LIBRARY</span>
-          <h2>节点</h2>
+          <h2>{t('palette.title')}</h2>
         </div>
         <span className="count-label">{NODE_DEFINITIONS.length + customModels.length}</span>
       </div>
       <div className="palette-search">
         <Search size={16} />
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索节点" aria-label="搜索节点" />
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('palette.searchPlaceholder')} aria-label={t('palette.searchPlaceholder')} />
         {query && <button className="bare-icon" onClick={() => setQuery('')} title="清除搜索"><X size={15} /></button>}
       </div>
       <div className="palette-scroll">
         {visibleModels.length > 0 && (
           <section className="palette-group custom-model-group">
-            <h3>XML 自定义节点</h3>
+            <h3>{t('palette.customNodes')}</h3>
             <div className="palette-items">
               {visibleModels.map((model) => {
                 const Icon = model.category === 'condition' ? SquareFunction : Zap
@@ -63,7 +117,7 @@ export function NodePalette({ customModels, onAddNode, onAddCustomNode }: NodePa
                     key={model.id}
                     onDragStart={(event) => beginCustomDrag(event, model.id)}
                     onClick={() => onAddCustomNode(model.id)}
-                    title={`${CATEGORY_LABELS[model.category]} · ${model.ports.length} 个端口`}
+                    title={`${catLabel(model.category)} · ${model.ports.length} 个端口`}
                   >
                     <span className="palette-item-icon"><Icon size={16} /></span>
                     <span className="palette-item-name">{model.id}</span>
@@ -73,12 +127,42 @@ export function NodePalette({ customModels, onAddNode, onAddCustomNode }: NodePa
             </div>
           </section>
         )}
-        {groups.map(({ category, items }) => (
+        {creatingModel ? (
+          <div className="palette-custom-form">
+            <div className="palette-custom-form-row">
+              <label>{t('palette.customModelName')}</label>
+              <input
+                value={newModelName}
+                onChange={(e) => setNewModelName(e.target.value)}
+                placeholder="MyNode"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') submitNewModel(); if (e.key === 'Escape') setCreatingModel(false); }}
+              />
+            </div>
+            <div className="palette-custom-form-row">
+              <label>{t('palette.customModelType')}</label>
+              <select value={newModelType} onChange={(e) => setNewModelType(e.target.value as NodeType)}>
+                {NODE_DEFINITIONS.filter((d) => d.type !== 'Root').map((d) => (
+                  <option key={d.type} value={d.type}>{isZh ? d.labelZh : d.label} ({d.type})</option>
+                ))}
+              </select>
+            </div>
+            <div className="palette-custom-form-actions">
+              <button className="primary-button compact" onClick={submitNewModel}>{t('palette.customModelCreate')}</button>
+              <button className="secondary-button compact" onClick={() => setCreatingModel(false)}>{t('modal.cancel')}</button>
+            </div>
+          </div>
+        ) : (
+          <button className="palette-add-custom" onClick={() => setCreatingModel(true)}>
+            <Plus size={14} /> {t('palette.customModelAdd')}
+          </button>
+        )}
+        {Array.from(groupedDefinitions.entries()).map(([category, items]) => (
           <section className="palette-group" key={category}>
-            <h3>{CATEGORY_LABELS[category]}</h3>
+            <h3>{catLabel(category)}</h3>
             <div className="palette-items">
               {items.map((item) => {
-                const Icon = item.icon
+                const Icon = item.icon || TreePine
                 return (
                   <button
                     className={`palette-item category-${category}`}
@@ -86,17 +170,17 @@ export function NodePalette({ customModels, onAddNode, onAddCustomNode }: NodePa
                     key={item.type}
                     onDragStart={(event) => beginDrag(event, item.type)}
                     onClick={() => onAddNode(item.type)}
-                    title={item.description}
+                    title={nodeDesc(item)}
                   >
                     <span className="palette-item-icon"><Icon size={16} /></span>
-                    <span className="palette-item-name">{item.label}</span>
+                    <span className="palette-item-name">{nodeLabel(item)}</span>
                   </button>
                 )
               })}
             </div>
           </section>
         ))}
-        {!groups.length && !visibleModels.length && <div className="panel-empty">没有匹配节点</div>}
+        {!groupedDefinitions.size && !visibleModels.length && <div className="panel-empty">{t('palette.noMatch')}</div>}
       </div>
     </aside>
   )
