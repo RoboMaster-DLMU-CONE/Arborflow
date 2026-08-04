@@ -33,7 +33,7 @@ import {
   Sun,
   TreePine,
   Undo2,
-  Upload,
+  FileUp,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BehaviorNodeCard } from './components/BehaviorNodeCard'
@@ -94,7 +94,7 @@ function Editor() {
     try {
       return { value: documentToXml(treeDocument), error: '' }
     } catch (error) {
-      return { value: '', error: error instanceof Error ? error.message : '无法生成 XML' }
+      return { value: '', error: error instanceof Error ? error.message : 'Cannot generate XML' }
     }
   }, [treeDocument])
 
@@ -158,7 +158,17 @@ function Editor() {
   const addNodeAt = useCallback((type: NodeType, position?: { x: number; y: number }) => {
     const point = position || screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
     const node = createNode(type, point)
-    commit((current) => ({ ...current, nodes: [...current.nodes, node] }))
+    commit((current) => {
+      const next = { ...current, nodes: [...current.nodes, node] }
+      // Auto-create a tree for new SubTree references
+      if (type === 'SubTree') {
+        const treeId = node.data.registrationName
+        if (treeId && !next.trees?.some((t) => t.id === treeId)) {
+          next.trees = [...(next.trees || []), { id: treeId, nodes: [], edges: [] }]
+        }
+      }
+      return next
+    })
     setSelectedNodeId(node.id)
     setViewMode('canvas')
   }, [commit, screenToFlowPosition])
@@ -196,6 +206,16 @@ function Editor() {
     window.setTimeout(() => fitView({ padding: 0.2, duration: 320 }), 60)
   }, [currentTreeId, fitView])
 
+  const navigateToTree = useCallback((treeId: string) => {
+    commit((current) => {
+      if (!current.trees?.some((t) => t.id === treeId)) {
+        return { ...current, trees: [...(current.trees || []), { id: treeId, nodes: [], edges: [] }] }
+      }
+      return current
+    })
+    switchTree(treeId)
+  }, [commit, switchTree])
+
   const deleteNode = useCallback((nodeId: string) => {
     commit((current) => ({
       ...current,
@@ -211,10 +231,21 @@ function Editor() {
   }, [commit])
 
   const updateNode = useCallback((nodeId: string, data: Partial<BehaviorNode['data']>) => {
-    commit((current) => ({
-      ...current,
-      nodes: current.nodes.map((node) => node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node),
-    }))
+    commit((current) => {
+      const node = current.nodes.find((n) => n.id === nodeId)
+      const next = {
+        ...current,
+        nodes: current.nodes.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n),
+      }
+      // Auto-create tree when SubTree registrationName changes
+      if (node && node.data.nodeType === 'SubTree' && data.registrationName) {
+        const treeId = data.registrationName
+        if (!next.trees?.some((t) => t.id === treeId)) {
+          next.trees = [...(next.trees || []), { id: treeId, nodes: [], edges: [] }]
+        }
+      }
+      return next
+    })
   }, [commit])
 
   const onNodesChange = useCallback((changes: NodeChange<BehaviorNode>[]) => {
@@ -228,15 +259,15 @@ function Editor() {
     const outgoingCount = treeDocument.edges.filter((edge) => edge.source === source.id).length
     const incomingCount = treeDocument.edges.filter((edge) => edge.target === connection.target).length
     if (outgoingCount >= maxChildren(source.data.nodeType)) {
-      showToast(`${source.data.label} 不能再添加子节点`, 'error')
+      showToast(`${source.data.label} ${t('validation.cannotAddChild')}`, 'error')
       return
     }
     if (incomingCount > 0) {
-      showToast('一个节点只能有一个父节点', 'error')
+      showToast(t('validation.singleParent'), 'error')
       return
     }
     if (wouldCreateCycle(treeDocument, connection.source, connection.target)) {
-      showToast('此连接会形成环路', 'error')
+      showToast(t('validation.wouldCycle'), 'error')
       return
     }
     commit((current) => ({
@@ -252,7 +283,7 @@ function Editor() {
   }, [commit, fitView, treeDocument.nodes.length])
 
   const newProject = useCallback(() => {
-    if (dirty && !window.confirm('当前工程有未保存更改，仍要新建吗？')) return
+    if (dirty && !window.confirm(t('confirm.unsavedNew'))) return
     replaceDocument(createEmptyDocument())
   }, [dirty, replaceDocument])
 
@@ -263,9 +294,9 @@ function Editor() {
         : await pickBrowserFile('.arborflow,.json')
       if (!result) return
       replaceDocument(parseProject(result.content), window.arborflow ? result.path : null)
-      showToast('工程已打开')
+      showToast(t('toast.projectOpened'))
     } catch (error) {
-      showToast(error instanceof Error ? error.message : '打开工程失败', 'error')
+      showToast(error instanceof Error ? error.message : t('toast.openFailed'), 'error')
     }
   }, [replaceDocument, showToast])
 
@@ -276,7 +307,7 @@ function Editor() {
         downloadText(`${treeDocument.title || 'behavior-tree'}.arborflow`, content, 'application/json')
         savedContentRef.current = content
         setDirty(false)
-        showToast('工程已下载')
+        showToast(t('toast.projectDownloaded'))
         return
       }
       const result = await window.arborflow.saveText({
@@ -290,9 +321,9 @@ function Editor() {
       setProjectPath(result.path)
       savedContentRef.current = content
       setDirty(false)
-      showToast('工程已保存')
+      showToast(t('toast.projectSaved'))
     } catch (error) {
-      showToast(error instanceof Error ? error.message : '保存失败', 'error')
+      showToast(error instanceof Error ? error.message : t('toast.saveFailed'), 'error')
     }
   }, [projectPath, showToast, treeDocument])
 
@@ -305,9 +336,9 @@ function Editor() {
       replaceDocument(xmlToDocument(result.content))
       savedContentRef.current = ''
       setDirty(true)
-      showToast('XML 已导入')
+      showToast(t('toast.xmlImported'))
     } catch (error) {
-      showToast(error instanceof Error ? error.message : '导入 XML 失败', 'error')
+      showToast(error instanceof Error ? error.message : t('toast.importFailed'), 'error')
     }
   }, [replaceDocument, showToast])
 
@@ -321,9 +352,9 @@ function Editor() {
         const result = await window.arborflow.saveText({ prompt: true, defaultPath: filename, content, filters: XML_FILTERS })
         if (!result) return
       }
-      showToast('BehaviorTree.CPP XML 已导出')
+      showToast(t('toast.xmlExported'))
     } catch (error) {
-      showToast(error instanceof Error ? error.message : '导出 XML 失败', 'error')
+      showToast(error instanceof Error ? error.message : t('toast.exportFailed'), 'error')
     }
   }, [showToast, treeDocument])
 
@@ -350,7 +381,7 @@ function Editor() {
   const copyXml = useCallback(async () => {
     if (!xmlPreview.value) return
     await navigator.clipboard.writeText(xmlPreview.value)
-    showToast('XML 已复制')
+    showToast(t('toast.xmlCopied'))
   }, [showToast, xmlPreview.value])
 
   useEffect(() => {
@@ -449,19 +480,19 @@ function Editor() {
           <div className="brand-mark"><TreePine size={20} /></div>
           <div className="brand-copy"><strong>ArborFlow</strong><span>Behavior Tree Studio</span></div>
         </div>
-        <div className="document-title"><span>{treeDocument.title}</span>{dirty && <i title="未保存" />}</div>
+        <div className="document-title"><span>{treeDocument.title}</span>{dirty && <i title={t('action.unsaved')} />}</div>
         <div className="header-actions">
-          <button className="icon-button" onClick={newProject} title="新建工程 (Ctrl+N)"><FilePlus2 size={17} /></button>
-          <button className="icon-button" onClick={() => void openProject()} title="打开工程 (Ctrl+O)"><FolderOpen size={17} /></button>
-          <button className="icon-button" onClick={() => void saveProject(false)} title="保存工程 (Ctrl+S)"><Save size={17} /></button>
+          <button className="icon-button" onClick={newProject} title={`${t('action.newProject')} (Ctrl+N)`}><FilePlus2 size={17} /></button>
+          <button className="icon-button" onClick={() => void openProject()} title={`${t('action.openProject')} (Ctrl+O)`}><FolderOpen size={17} /></button>
+          <button className="icon-button" onClick={() => void saveProject(false)} title={`${t('action.saveProject')} (Ctrl+S)`}><Save size={17} /></button>
           <span className="toolbar-separator" />
-          <button className="icon-button" onClick={undo} disabled={!canUndo} title="撤销 (Ctrl+Z)"><Undo2 size={17} /></button>
-          <button className="icon-button" onClick={redo} disabled={!canRedo} title="重做 (Ctrl+Shift+Z)"><Redo2 size={17} /></button>
+          <button className="icon-button" onClick={undo} disabled={!canUndo} title={`${t('action.undo')} (Ctrl+Z)`}><Undo2 size={17} /></button>
+          <button className="icon-button" onClick={redo} disabled={!canRedo} title={`${t('action.redo')} (Ctrl+Shift+Z)`}><Redo2 size={17} /></button>
           <span className="toolbar-separator" />
-          <button className="icon-button" onClick={importXml} title="导入 XML"><Upload size={17} /></button>
-          <button className="icon-button" onClick={exportXml} title="导出 XML"><FileDown size={17} /></button>
+          <button className="icon-button" onClick={importXml} title={t('action.importXml')}><FileUp size={17} /></button>
+          <button className="icon-button" onClick={exportXml} title={t('action.exportXml')}><FileDown size={17} /></button>
           <span className="toolbar-separator" />
-          <button className={`icon-button ${settingsOpen ? 'active' : ''}`} onClick={() => setSettingsOpen((v) => !v)} title="设置"><Settings size={17} /></button>
+          <button className={`icon-button ${settingsOpen ? 'active' : ''}`} onClick={() => setSettingsOpen((v) => !v)} title={t('action.settings')}><Settings size={17} /></button>
           <button className={`monitor-button ${monitorOpen ? 'active' : ''}`} onClick={() => setMonitorOpen((value) => !value)}><MonitorDot size={16} />Monitor</button>
         </div>
       </header>
@@ -493,22 +524,22 @@ function Editor() {
           </button>
           {treeMenuOpen && (
             <div className="tree-menu">
-              <div className="tree-menu-heading">行为树 · {treeGraphs.length}</div>
+              <div className="tree-menu-heading">{t('tree.heading')} · {treeGraphs.length}</div>
               {treeGraphs.map((tree) => (
                 <button className={tree.id === currentTreeId ? 'active' : ''} key={tree.id} onClick={() => switchTree(tree.id)}>
                   <span>{tree.id}</span>
-                  <small>{tree.nodes.length} 节点{tree.id === treeDocument.mainTreeId ? ' · MAIN' : ''}</small>
+                  <small>{tree.nodes.length} {t('status.nodes')}{tree.id === treeDocument.mainTreeId ? ' · MAIN' : ''}</small>
                 </button>
               ))}
             </div>
           )}
         </div>
-        <div className="view-switch" aria-label="视图切换">
-          <button className={viewMode === 'canvas' ? 'active' : ''} onClick={() => setViewMode('canvas')}><TreePine size={14} />画布</button>
+        <div className="view-switch" aria-label={t('toolbar.viewSwitch')}>
+          <button className={viewMode === 'canvas' ? 'active' : ''} onClick={() => setViewMode('canvas')}><TreePine size={14} />{t('toolbar.canvas')}</button>
           <button className={viewMode === 'xml' ? 'active' : ''} onClick={() => setViewMode('xml')}><Code2 size={14} />XML</button>
         </div>
         <div className="workspace-toolbar-actions">
-          <button className="tool-button" onClick={autoLayout} title="自动布局 (Ctrl+L)"><AlignVerticalSpaceAround size={15} />自动布局</button>
+          <button className="tool-button" onClick={autoLayout} title={`${t('toolbar.autoLayout')} (Ctrl+L)`}><AlignVerticalSpaceAround size={15} />{t('toolbar.autoLayout')}</button>
         </div>
       </div>
 
@@ -524,7 +555,20 @@ function Editor() {
                 onNodesChange={onNodesChange}
                 onConnect={connectNodes}
                 onNodeClick={(_event, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(null) }}
-                onNodeDoubleClick={(_event, node) => { setModalNodeId(node.id); setSelectedNodeId(node.id) }}
+                onNodeDoubleClick={(_event, node) => {
+                  if (node.data.nodeType === 'SubTree') {
+                    const targetId = node.data.registrationName
+                    commit((current) => {
+                      if (!current.trees?.some((t) => t.id === targetId)) {
+                        return { ...current, trees: [...(current.trees || []), { id: targetId, nodes: [], edges: [] }] }
+                      }
+                      return current
+                    })
+                    if (targetId) switchTree(targetId)
+                    return
+                  }
+                  setModalNodeId(node.id); setSelectedNodeId(node.id)
+                }}
                 onEdgeClick={(_event, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(null) }}
                 onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); setTreeMenuOpen(false); setSettingsOpen(false) }}
                 onNodeDragStart={() => { dragStartRef.current = treeDocument }}
@@ -568,10 +612,10 @@ function Editor() {
               <div className="xml-view">
                 <div className="xml-header">
                   <div><FileCode2 size={16} /><span>{treeDocument.mainTreeId}.xml</span></div>
-                  <button className="icon-button compact" onClick={copyXml} disabled={!xmlPreview.value} title="复制 XML"><Copy size={15} /></button>
+                  <button className="icon-button compact" onClick={copyXml} disabled={!xmlPreview.value} title={t('xml.copyButton')}><Copy size={15} /></button>
                 </div>
                 {xmlPreview.error ? (
-                  <div className="xml-error"><Activity size={20} /><strong>无法生成 XML</strong><span>{xmlPreview.error}</span></div>
+                  <div className="xml-error"><Activity size={20} /><strong>{t('xml.errorHeading')}</strong><span>{xmlPreview.error}</span></div>
                 ) : (
                   <pre><code>{xmlPreview.value}</code></pre>
                 )}
@@ -594,12 +638,13 @@ function Editor() {
           onUpdateNode={updateNode}
           onDeleteNode={deleteNode}
           onSelectIssue={selectAndRevealNode}
+          onNavigateToTree={navigateToTree}
         />
       </main>
 
       <footer className="status-bar">
-        <div><span className={errors ? 'status-error' : 'status-valid'}>{errors ? `${errors} 个结构错误` : <><Check size={12} />结构有效</>}</span></div>
-        <div><span>{treeGraphs.length} 棵树</span><span>{treeDocument.nodes.length} 节点</span><span>{treeDocument.edges.length} 连接</span><span>{zoom}%</span><span>{window.arborflow ? `Desktop · ${window.arborflow.platform}` : 'Web Preview'}</span></div>
+        <div><span className={errors ? 'status-error' : 'status-valid'}>{errors ? `${errors} ${t('status.errors')}` : <><Check size={12} />{t('status.valid')}</>}</span></div>
+        <div><span>{treeGraphs.length} {t('status.trees')}</span><span>{treeDocument.nodes.length} {t('status.nodes')}</span><span>{treeDocument.edges.length} {t('status.edges')}</span><span>{zoom}%</span><span>{window.arborflow ? `Desktop · ${window.arborflow.platform}` : t('status.webPreview')}</span></div>
       </footer>
       {toast && <div className={`toast ${toast.kind}`}>{toast.message}</div>}
 

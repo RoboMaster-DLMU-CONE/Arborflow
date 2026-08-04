@@ -93,7 +93,7 @@ export function NodePalette({ customModels, onAddNode, onAddCustomNode, onAddCus
     <aside className="left-panel">
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">LIBRARY</span>
+          <span className="eyebrow">{t('palette.eyebrow')}</span>
           <h2>{t('palette.title')}</h2>
         </div>
         <span className="count-label">{NODE_DEFINITIONS.length + customModels.length}</span>
@@ -101,7 +101,7 @@ export function NodePalette({ customModels, onAddNode, onAddCustomNode, onAddCus
       <div className="palette-search">
         <Search size={16} />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('palette.searchPlaceholder')} aria-label={t('palette.searchPlaceholder')} />
-        {query && <button className="bare-icon" onClick={() => setQuery('')} title="清除搜索"><X size={15} /></button>}
+        {query && <button className="bare-icon" onClick={() => setQuery('')} title={t('palette.clearSearch')}><X size={15} /></button>}
       </div>
       <div className="palette-scroll">
         {visibleModels.length > 0 && (
@@ -117,7 +117,7 @@ export function NodePalette({ customModels, onAddNode, onAddCustomNode, onAddCus
                     key={model.id}
                     onDragStart={(event) => beginCustomDrag(event, model.id)}
                     onClick={() => onAddCustomNode(model.id)}
-                    title={`${catLabel(model.category)} · ${model.ports.length} 个端口`}
+                    title={`${catLabel(model.category)} · ${t('palette.portCount').replace('{count}', String(model.ports.length))}`}
                   >
                     <span className="palette-item-icon"><Icon size={16} /></span>
                     <span className="palette-item-name">{model.id}</span>
@@ -170,7 +170,7 @@ export function NodePalette({ customModels, onAddNode, onAddCustomNode, onAddCus
                     key={item.type}
                     onDragStart={(event) => beginDrag(event, item.type)}
                     onClick={() => onAddNode(item.type)}
-                    title={nodeDesc(item)}
+                    title={`${nodeLabel(item)} — ${nodeDesc(item)}`}
                   >
                     <span className="palette-item-icon"><Icon size={16} /></span>
                     <span className="palette-item-name">{nodeLabel(item)}</span>

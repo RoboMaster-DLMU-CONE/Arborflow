@@ -35,10 +35,7 @@ export function BehaviorNodeCard({ data, selected }: NodeProps<BehaviorNode>) {
     <div className={`behavior-node category-${data.category} runtime-${status.toLowerCase()} ${selected ? 'is-selected' : ''}`}>
       {/* Top handle — skip for Root node since nothing connects above it */}
       {!isRoot && (
-        <>
-          <Handle className="node-handle node-handle-target" type="target" position={Position.Top} />
-          <span className="handle-label handle-label-in">IN</span>
-        </>
+        <Handle className="node-handle node-handle-target" type="target" position={Position.Top} />
       )}
 
       <div className="node-accent" />
@@ -87,12 +84,9 @@ export function BehaviorNodeCard({ data, selected }: NodeProps<BehaviorNode>) {
       {/* Root badge */}
       {isRoot && <span className="runtime-badge" style={{ color: 'var(--amber)', borderColor: 'var(--amber)', bottom: 'auto', top: 6, right: 7 }}>ROOT</span>}
 
-      {/* Bottom handle with OUT label — only if node can have children */}
+      {/* Bottom handle — only if node can have children */}
       {canHaveChildren(data.nodeType) && (
-        <>
-          <Handle className="node-handle node-handle-source" type="source" position={Position.Bottom} />
-          <span className="handle-label handle-label-out">OUT</span>
-        </>
+        <Handle className="node-handle node-handle-source" type="source" position={Position.Bottom} />
       )}
     </div>
   )

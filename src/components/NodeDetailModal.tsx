@@ -12,7 +12,7 @@ interface NodeDetailModalProps {
 }
 
 export function NodeDetailModal({ node, onSave, onDelete, onClose }: NodeDetailModalProps) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const definition = NODE_DEFINITION_MAP.get(node.data.nodeType)
 
   // Local working copy
@@ -100,7 +100,7 @@ export function NodeDetailModal({ node, onSave, onDelete, onClose }: NodeDetailM
         <div className="modal-header">
           <h2>
             <span style={{ color: 'var(--category-color)' }}>
-              {definition?.labelZh && definition.labelZh !== definition.label ? definition.labelZh : definition?.label}
+              {lang === 'zh' && definition?.labelZh ? definition.labelZh : definition?.label}
             </span>
             {t('modal.editNode')}
           </h2>

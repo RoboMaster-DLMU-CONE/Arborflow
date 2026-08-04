@@ -1,8 +1,31 @@
+import { createNode } from './catalog'
 import { syncActiveTree, switchDocumentTree } from './trees'
-import type { BehaviorTreeDocument } from '../types'
+import type { BehaviorEdge, BehaviorNode, BehaviorTreeDocument } from '../types'
 
 export function serializeProject(document: BehaviorTreeDocument) {
   return JSON.stringify(syncActiveTree(document), null, 2) + '\n'
+}
+
+/** Ensure the active tree has a Root node at the top. If not, add one. */
+export function ensureRootNode(nodes: BehaviorNode[], edges: BehaviorEdge[]): { nodes: BehaviorNode[]; edges: BehaviorEdge[] } {
+  const hasRoot = nodes.some((n) => n.data.nodeType === 'Root')
+  if (hasRoot) return { nodes, edges }
+
+  const incoming = new Map<string, number>()
+  edges.forEach((e) => incoming.set(e.target, (incoming.get(e.target) || 0) + 1))
+  const roots = nodes.filter((n) => (incoming.get(n.id) || 0) === 0)
+  if (roots.length === 0) return { nodes, edges }
+
+  const rootNode = createNode('Root')
+  rootNode.data = { ...rootNode.data, label: 'Root', registrationName: 'Root' }
+
+  let edgeIndex = edges.length
+  const newEdges: BehaviorEdge[] = [...edges]
+  roots.forEach((r) => {
+    newEdges.push({ id: `edge_root_${edgeIndex++}`, source: rootNode.id, target: r.id, type: 'smoothstep' })
+  })
+
+  return { nodes: [rootNode, ...nodes], edges: newEdges }
 }
 
 export function parseProject(content: string): BehaviorTreeDocument {
@@ -16,6 +39,9 @@ export function parseProject(content: string): BehaviorTreeDocument {
     throw new Error('工程文件缺少节点或连接数据')
   }
   const document = candidate as BehaviorTreeDocument
+  const { nodes, edges } = ensureRootNode(document.nodes, document.edges)
+  document.nodes = nodes
+  document.edges = edges
   const requestedTree = document.activeTreeId || document.mainTreeId
   return document.trees?.length ? switchDocumentTree(document, requestedTree) : document
 }

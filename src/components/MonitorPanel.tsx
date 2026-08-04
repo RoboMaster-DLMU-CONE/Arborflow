@@ -1,6 +1,7 @@
 import { Activity, CircleStop, PlugZap, RotateCw, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { matchRuntimeNodes, parseMonitorMessage } from '../lib/runtime'
+import { useI18n } from '../context/I18nContext'
 import type { BehaviorNode, RuntimeEvent, RuntimeStatus } from '../types'
 
 type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error'
@@ -13,11 +14,11 @@ interface MonitorPanelProps {
   onClearStatuses: () => void
 }
 
-const STATE_LABEL: Record<ConnectionState, string> = {
-  disconnected: '未连接', connecting: '连接中', connected: '已连接', error: '连接错误',
-}
-
 export function MonitorPanel({ open, nodes, onClose, onRuntimeUpdate, onClearStatuses }: MonitorPanelProps) {
+  const { t, lang } = useI18n()
+  const STATE_LABEL: Record<ConnectionState, string> = {
+    disconnected: t('monitor.disconnected'), connecting: t('monitor.connecting'), connected: t('monitor.connected'), error: t('monitor.error'),
+  }
   const [endpoint, setEndpoint] = useState(() => localStorage.getItem('arborflow.monitor.endpoint') || 'ws://127.0.0.1:1667')
   const [rosTopic, setRosTopic] = useState(() => localStorage.getItem('arborflow.monitor.topic') || '/arborflow/status')
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
@@ -120,20 +121,20 @@ export function MonitorPanel({ open, nodes, onClose, onRuntimeUpdate, onClearSta
       <div className="monitor-header">
         <div className="monitor-title"><Activity size={17} /><strong>Real-time Monitor</strong><span className={`connection-pill ${connectionState}`}><i />{STATE_LABEL[connectionState]}</span></div>
         <div className="monitor-actions">
-          <button className="icon-button compact" onClick={() => { setEvents([]); onClearStatuses() }} title="清空运行状态"><Trash2 size={15} /></button>
-          <button className="icon-button compact" onClick={onClose} title="关闭监视器"><X size={16} /></button>
+          <button className="icon-button compact" onClick={() => { setEvents([]); onClearStatuses() }} title={t('monitor.clearRuntime')}><Trash2 size={15} /></button>
+          <button className="icon-button compact" onClick={onClose} title={t('monitor.closeMonitor')}><X size={16} /></button>
         </div>
       </div>
       <div className="monitor-body">
         <div className="monitor-connect">
           <div className="field-group">
-            <label htmlFor="monitor-endpoint">ROS WebSocket 地址</label>
+            <label htmlFor="monitor-endpoint">{t('monitor.endpoint')}</label>
             <div className="endpoint-row">
               <input id="monitor-endpoint" className="mono" value={endpoint} onChange={(event) => setEndpoint(event.target.value)} disabled={shouldConnect} />
               {shouldConnect ? (
-                <button className="secondary-button" onClick={disconnect}><CircleStop size={15} />断开</button>
+                <button className="secondary-button" onClick={disconnect}><CircleStop size={15} />{t('monitor.disconnect')}</button>
               ) : (
-                <button className="primary-button" onClick={() => setShouldConnect(true)}><PlugZap size={15} />连接</button>
+                <button className="primary-button" onClick={() => setShouldConnect(true)}><PlugZap size={15} />{t('monitor.connect')}</button>
               )}
             </div>
           </div>
@@ -142,29 +143,29 @@ export function MonitorPanel({ open, nodes, onClose, onRuntimeUpdate, onClearSta
             <input id="monitor-topic" className="mono" value={rosTopic} onChange={(event) => setRosTopic(event.target.value)} disabled={shouldConnect} />
           </div>
           <label className="toggle-row compact-toggle">
-            <span><span className="toggle-title">自动重连</span></span>
+            <span><span className="toggle-title">{t('monitor.autoReconnect')}</span></span>
             <input type="checkbox" checked={autoReconnect} onChange={(event) => setAutoReconnect(event.target.checked)} />
           </label>
           <div className="monitor-metrics">
-            <div><span>消息</span><strong>{messageCount}</strong></div>
-            <div><span>延迟</span><strong>{lastLatency === null ? '--' : `${lastLatency} ms`}</strong></div>
-            <div><span>匹配</span><strong>{events.filter((event) => event.matchedNodeIds.length).length}</strong></div>
+            <div><span>{t('monitor.messages')}</span><strong>{messageCount}</strong></div>
+            <div><span>{t('monitor.latency')}</span><strong>{lastLatency === null ? '--' : `${lastLatency} ms`}</strong></div>
+            <div><span>{t('monitor.matched')}</span><strong>{events.filter((event) => event.matchedNodeIds.length).length}</strong></div>
           </div>
         </div>
         <div className="runtime-legend">
           {(['RUNNING', 'SUCCESS', 'FAILURE', 'IDLE', 'SKIPPED'] as RuntimeStatus[]).map((status) => <span key={status}><i className={`runtime-${status.toLowerCase()}`} />{status}</span>)}
         </div>
         <div className="event-stream">
-          <div className="event-stream-heading"><span>事件流</span>{connectionState === 'connecting' && <RotateCw className="spin" size={14} />}</div>
+          <div className="event-stream-heading"><span>{t('monitor.eventStream')}</span>{connectionState === 'connecting' && <RotateCw className="spin" size={14} />}</div>
           <div className="event-list">
-            {!events.length && <div className="event-empty">等待节点状态</div>}
+            {!events.length && <div className="event-empty">{t('monitor.waiting')}</div>}
             {events.map((event) => (
               <div className="event-row" key={event.id}>
-                <time>{new Date(event.at).toLocaleTimeString('zh-CN', { hour12: false })}</time>
+                <time>{new Date(event.at).toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US', { hour12: false })}</time>
                 <i className={`runtime-${event.status.toLowerCase()}`} />
                 <span className="event-node" title={event.nodeRef}>{event.nodeRef}</span>
                 <span className={`event-status runtime-${event.status.toLowerCase()}`}>{event.status}</span>
-                {!event.matchedNodeIds.length && <span className="unmatched">未匹配</span>}
+                {!event.matchedNodeIds.length && <span className="unmatched">{t('monitor.unmatched')}</span>}
               </div>
             ))}
           </div>

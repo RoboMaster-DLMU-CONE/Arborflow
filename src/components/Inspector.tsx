@@ -1,4 +1,4 @@
-import { AlertCircle, Braces, Plus, Trash2, X } from 'lucide-react'
+import { AlertCircle, Braces, ExternalLink, Plus, Trash2, X } from 'lucide-react'
 import { useI18n } from '../context/I18nContext'
 import type { BehaviorNode, BehaviorTreeDocument, PortDirection, ValidationIssue } from '../types'
 
@@ -10,9 +10,10 @@ interface InspectorProps {
   onUpdateNode: (nodeId: string, data: Partial<BehaviorNode['data']>) => void
   onDeleteNode: (nodeId: string) => void
   onSelectIssue: (nodeId: string) => void
+  onNavigateToTree: (treeId: string) => void
 }
 
-export function Inspector({ document, selectedNode, issues, onUpdateDocument, onUpdateNode, onDeleteNode, onSelectIssue }: InspectorProps) {
+export function Inspector({ document, selectedNode, issues, onUpdateDocument, onUpdateNode, onDeleteNode, onSelectIssue, onNavigateToTree }: InspectorProps) {
   const { t } = useI18n()
 
   const updatePort = (oldKey: string, key: string, value: string) => {
@@ -94,6 +95,11 @@ export function Inspector({ document, selectedNode, issues, onUpdateDocument, on
                 <div className="read-only-value mono" title={selectedNode.id}>{selectedNode.id}</div>
               </div>
             </div>
+            {selectedNode.data.nodeType === 'SubTree' && selectedNode.data.registrationName && (
+              <button className="secondary-button" style={{ width: '100%', marginBottom: 10 }} onClick={() => onNavigateToTree(selectedNode.data.registrationName)}>
+                <ExternalLink size={14} /> {t('inspector.enterSubtree')}
+              </button>
+            )}
             <div className="section-divider" />
             <div className="section-title-row">
               <div className="section-title"><Braces size={15} />{t('inspector.ports')}</div>

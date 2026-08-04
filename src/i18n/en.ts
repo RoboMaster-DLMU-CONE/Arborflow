@@ -6,6 +6,7 @@ const en: Record<string, string> = {
   'toolbar.canvas': 'Canvas',
   'toolbar.xml': 'XML',
   'toolbar.autoLayout': 'Auto Layout',
+  'toolbar.viewSwitch': 'View Switch',
   'toolbar.monitor': 'Monitor',
 
   /* ── Header Actions ── */
@@ -16,6 +17,7 @@ const en: Record<string, string> = {
   'action.redo': 'Redo',
   'action.importXml': 'Import XML',
   'action.exportXml': 'Export XML',
+  'action.unsaved': 'Unsaved',
   'action.settings': 'Settings',
 
   /* ── Settings ── */
@@ -35,7 +37,10 @@ const en: Record<string, string> = {
   'palette.title': 'Nodes',
   'palette.searchPlaceholder': 'Search nodes',
   'palette.customNodes': 'XML Custom Nodes',
+  'palette.eyebrow': 'LIBRARY',
   'palette.noMatch': 'No matching nodes',
+  'palette.clearSearch': 'Clear search',
+  'palette.portCount': '{count} port(s)',
   'palette.customModelAdd': 'Add Custom Node',
   'palette.customModelName': 'Node Name / ID',
   'palette.customModelType': 'Base Type',
@@ -101,6 +106,7 @@ const en: Record<string, string> = {
   'inspector.portDirection': 'Direction',
   'inspector.breakpoint': 'Breakpoint',
   'inspector.breakpointDesc': 'Flag when execution reaches this node',
+  'inspector.enterSubtree': 'Enter Subtree',
   'inspector.notes': 'Notes',
   'inspector.deleteNode': 'Delete Node',
   'inspector.structureCheck': 'Structure Check',
@@ -158,6 +164,7 @@ const en: Record<string, string> = {
 
   /* ── XML View ── */
   'xml.copyButton': 'Copy XML',
+  'xml.errorHeading': 'Cannot Generate XML',
 
   /* ── Monitor ── */
   'monitor.disconnected': 'Disconnected',
@@ -174,6 +181,8 @@ const en: Record<string, string> = {
   'monitor.connect': 'Connect',
   'monitor.messages': 'Messages',
   'monitor.latency': 'Latency',
+  'monitor.clearRuntime': 'Clear Runtime Status',
+  'monitor.closeMonitor': 'Close Monitor',
   'monitor.matched': 'Matched',
 }
 

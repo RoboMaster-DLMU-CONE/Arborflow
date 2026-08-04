@@ -200,6 +200,26 @@ function parseBehaviorTree(element: Element, models: Map<string, CustomNodeModel
     Array.from(nodeElement.children).forEach((child) => visit(child, node.id))
   }
   visit(treeRoot)
+
+  // Ensure a Root node sits at the top of every imported tree
+  const incoming = new Map(nodes.map((n) => [n.id, 0]))
+  edges.forEach((e) => incoming.set(e.target, (incoming.get(e.target) || 0) + 1))
+  const roots = nodes.filter((n) => (incoming.get(n.id) || 0) === 0)
+  const hasRootNode = roots.some((n) => n.data.nodeType === 'Root')
+
+  if (!hasRootNode && roots.length > 0) {
+    const rootNode = createNode('Root')
+    rootNode.data = {
+      ...rootNode.data,
+      label: treeId,
+      registrationName: treeId,
+    }
+    nodes.push(rootNode)
+    roots.forEach((r) => {
+      edges.push({ id: `edge_${treeId}_${edgeIndex++}`, source: rootNode.id, target: r.id, type: 'smoothstep' })
+    })
+  }
+
   return layoutGraph({ id: treeId, nodes, edges })
 }
 

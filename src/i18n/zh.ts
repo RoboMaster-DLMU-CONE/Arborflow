@@ -6,6 +6,7 @@ const zh: Record<string, string> = {
   'toolbar.canvas': '画布',
   'toolbar.xml': 'XML',
   'toolbar.autoLayout': '自动布局',
+  'toolbar.viewSwitch': '视图切换',
   'toolbar.monitor': 'Monitor',
 
   /* ── Header Actions ── */
@@ -16,6 +17,7 @@ const zh: Record<string, string> = {
   'action.redo': '重做',
   'action.importXml': '导入 XML',
   'action.exportXml': '导出 XML',
+  'action.unsaved': '未保存',
   'action.settings': '设置',
 
   /* ── Settings ── */
@@ -35,7 +37,10 @@ const zh: Record<string, string> = {
   'palette.title': '节点',
   'palette.searchPlaceholder': '搜索节点',
   'palette.customNodes': 'XML 自定义节点',
+  'palette.eyebrow': '节点库',
   'palette.noMatch': '没有匹配节点',
+  'palette.clearSearch': '清除搜索',
+  'palette.portCount': '{count} 个端口',
   'palette.customModelAdd': '添加自定义节点',
   'palette.customModelName': '节点名称 / ID',
   'palette.customModelType': '基础类型',
@@ -101,6 +106,7 @@ const zh: Record<string, string> = {
   'inspector.portDirection': '方向',
   'inspector.breakpoint': '断点',
   'inspector.breakpointDesc': '运行到此节点时标记',
+  'inspector.enterSubtree': '进入子树',
   'inspector.notes': '备注',
   'inspector.deleteNode': '删除节点',
   'inspector.structureCheck': '结构检查',
@@ -158,6 +164,7 @@ const zh: Record<string, string> = {
 
   /* ── XML View ── */
   'xml.copyButton': '复制 XML',
+  'xml.errorHeading': '无法生成 XML',
 
   /* ── Monitor ── */
   'monitor.disconnected': '未连接',
@@ -174,6 +181,8 @@ const zh: Record<string, string> = {
   'monitor.connect': '连接',
   'monitor.messages': '消息',
   'monitor.latency': '延迟',
+  'monitor.clearRuntime': '清空运行状态',
+  'monitor.closeMonitor': '关闭监视器',
   'monitor.matched': '匹配',
 }
 
